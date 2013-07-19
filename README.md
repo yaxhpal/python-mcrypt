@@ -8,6 +8,13 @@ The mcrypt library provides an easy to use interface for several algorithms and 
 This module exports functionality provided by the mcrypt library to python programs.
 
 
+Installation
+------------
+
+python setup.py build
+sudo python setup.py install
+
+
 Classes
 -------
 
