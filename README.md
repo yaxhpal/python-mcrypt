@@ -26,6 +26,8 @@ The python-mcrypt module provides the following features:
 
 Installation
 ------------
+If the build complains about missing *mcrypt.h* then you need to install ```libmcrypt-dev``` and possibly reboot.
+
 ```
 python setup.py build
 sudo python setup.py install
