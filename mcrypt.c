@@ -21,7 +21,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
 #include <mcrypt.h>
-#include "Python.h"
+#include "py3c.h"
 #include "structmember.h"
 
 /* Thread support doesn't seem to be working in mcrypt */
@@ -50,6 +50,12 @@ static char *mode_dir = NULL;
 #define INIT_REINIT  4
 #define INIT_DEINIT  5
 
+#if defined(HAVE_DECLSPEC_DLL)
+    #define DL_EXPORT(type) __declspec(dllexport) type
+#else
+    #define DL_EXPORT(type) type
+#endif
+
 typedef struct {
 	PyObject_HEAD
 	MCRYPT thread;
@@ -72,7 +78,7 @@ static PyMemberDef MCRYPT_members[] = {
 	{0}
 };
 
-staticforward PyTypeObject MCRYPT_Type;
+static PyTypeObject MCRYPT_Type;
 
 #define MCRYPTObject_Check(v)	((v)->ob_type == &MCRYPT_Type)
 
@@ -104,9 +110,9 @@ get_iv_from_obj(MCRYPTObject *self, PyObject *ivobj, void **iv)
 {
 	if (ivobj == Py_None) {
 		*iv = NULL;
-	} else if (PyString_Check(ivobj)) {
-		int iv_size = PyString_Size(ivobj);
-		*iv = PyString_AsString(ivobj);
+	} else if (PyBytes_Check(ivobj)) {
+		int iv_size = PyBytes_Size(ivobj);
+		*iv = PyBytes_AsString(ivobj);
 		if (iv_size != self->iv_size) {
 			PyErr_Format(PyExc_ValueError,
 				     "iv size for this algorithm must be %d",
@@ -338,7 +344,7 @@ MCRYPT_dealloc(MCRYPTObject *self)
 		free(self->algorithm);
 		free(self->mode);
 	}
-	self->ob_type->tp_free((PyObject *)self);
+	Py_TYPE(self)->tp_free((PyObject *)self);
 }
 
 static int
@@ -362,8 +368,8 @@ MCRYPT__init__(MCRYPTObject *self, PyObject *args, PyObject *kwargs)
 		adir = algorithm_dir;
 	} else if (aobj == Py_None) {
 		adir = NULL;
-	} else if (PyString_Check(aobj)) {
-		adir = PyString_AsString(aobj);
+	} else if (PyBytes_Check(aobj)) {
+		adir = PyBytes_AsString(aobj);
 	} else {
 		PyErr_SetString(PyExc_TypeError,
 				"algorithm_dir must be None or a string");
@@ -374,8 +380,8 @@ MCRYPT__init__(MCRYPTObject *self, PyObject *args, PyObject *kwargs)
 		mdir = mode_dir;
 	} else if (mobj == Py_None) {
 		mdir = NULL;
-	} else if (PyString_Check(mobj)) {
-		mdir = PyString_AsString(mobj);
+	} else if (PyBytes_Check(mobj)) {
+		mdir = PyBytes_AsString(mobj);
 	} else {
 		PyErr_SetString(PyExc_TypeError,
 				"mode_dir must be None or a string");
@@ -576,7 +582,7 @@ MCRYPT_encrypt(MCRYPTObject *self, PyObject *args, PyObject *kwargs)
 	if (catch_mcrypt_error(rc))
 		ret = NULL;
 	else
-		ret = PyString_FromStringAndSize(blockbuffer,
+		ret = PyStr_FromStringAndSize(blockbuffer,
 						 blockbuffer_size);
 	PyMem_Free(blockbuffer);
 	return ret;
@@ -642,7 +648,7 @@ MCRYPT_decrypt(MCRYPTObject *self, PyObject *args, PyObject *kwargs)
 	if (catch_mcrypt_error(rc))
 		ret = NULL;
 	else
-		ret = PyString_FromStringAndSize(blockbuffer, blockbuffer_size
+		ret = PyStr_FromStringAndSize(blockbuffer, blockbuffer_size
 						 -block_size+left_size);
 	PyMem_Free(blockbuffer);
 	return ret;
@@ -715,7 +721,7 @@ MCRYPT_encrypt_file(MCRYPTObject *self, PyObject *args, PyObject *kwargs)
 			break;
 		}
 
-		if (!PyString_Check(result)) {
+		if (!PyBytes_Check(result)) {
 			Py_DECREF(result);
 			PyErr_SetString(PyExc_TypeError,
 					"read method must return strings");
@@ -723,8 +729,8 @@ MCRYPT_encrypt_file(MCRYPTObject *self, PyObject *args, PyObject *kwargs)
 			break;
 		}
 		
-		data = PyString_AsString(result);
-		data_size = PyString_Size(result);
+		data = PyBytes_AsString(result);
+		data_size = PyBytes_Size(result);
 		
 		/* If we're using fixlength and left_size
 		 * was 0 last time, we must add a pad to insert
@@ -865,11 +871,11 @@ MCRYPT_decrypt_file(MCRYPTObject *self, PyObject *args, PyObject *kwargs)
 		nextresult = PyEval_CallFunction(readmeth, "(i)",
 						 blockbuffer_size);
 
-		if (nextresult != NULL && PyString_Check(nextresult)
-		    && PyString_Size(nextresult) == 0)
+		if (nextresult != NULL && PyBytes_Check(nextresult)
+		    && PyBytes_Size(nextresult) == 0)
 			last = 1;
 
-		if (!PyString_Check(result)) {
+		if (!PyBytes_Check(result)) {
 			Py_DECREF(result);
 			PyErr_SetString(PyExc_TypeError,
 					"read method must return strings");
@@ -877,8 +883,8 @@ MCRYPT_decrypt_file(MCRYPTObject *self, PyObject *args, PyObject *kwargs)
 			break;
 		}
 
-		data = PyString_AsString(result);
-		data_size = PyString_Size(result);
+		data = PyBytes_AsString(result);
+		data_size = PyBytes_Size(result);
 		if (data_size == 0) {
 			Py_DECREF(result);
 			break;
@@ -1161,48 +1167,47 @@ algorithm   - Selected algorithm.\n\
 mode        - Selected mode.\n\
 ";
 
-statichere PyTypeObject MCRYPT_Type = {
-	PyObject_HEAD_INIT(NULL)
-	0,			/*ob_size*/
-	"mcrypt.MCRYPT",	/*tp_name*/
-	sizeof(MCRYPTObject),	/*tp_basicsize*/
-	0,			/*tp_itemsize*/
+static PyTypeObject MCRYPT_Type = {
+	PyVarObject_HEAD_INIT(NULL, 0)	/*ob_size*/
+	"mcrypt.MCRYPT",	        /*tp_name*/
+	sizeof(MCRYPTObject),	    /*tp_basicsize*/
+	0,			                /*tp_itemsize*/
 	(destructor)MCRYPT_dealloc, /*tp_dealloc*/
-	0,			/*tp_print*/
-	0,			/*tp_getattr*/
-	0,			/*tp_setattr*/
-	0,			/*tp_compare*/
-	0,			/*tp_repr*/
-	0,			/*tp_as_number*/
-	0,			/*tp_as_sequence*/
-	0,			/*tp_as_mapping*/
-	0,			/*tp_hash*/
-        0,                      /*tp_call*/
-        0,                      /*tp_str*/
-        PyObject_GenericGetAttr,/*tp_getattro*/
-        PyObject_GenericSetAttr,/*tp_setattro*/
-        0,                      /*tp_as_buffer*/
-        Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
-        MCRYPT__doc__,           /*tp_doc*/
-        0,                      /*tp_traverse*/
-        0,                      /*tp_clear*/
-        0,                      /*tp_richcompare*/
-        0,                      /*tp_weaklistoffset*/
-        0,                      /*tp_iter*/
-        0,                      /*tp_iternext*/
-        MCRYPT_methods,          /*tp_methods*/
-        MCRYPT_members,          /*tp_members*/
-        0,                      /*tp_getset*/
-        0,                      /*tp_base*/
-        0,                      /*tp_dict*/
-        0,                      /*tp_descr_get*/
-        0,                      /*tp_descr_set*/
-        0,                      /*tp_dictoffset*/
-        (initproc)MCRYPT__init__,   /*tp_init*/
-        PyType_GenericAlloc,    /*tp_alloc*/
-        PyType_GenericNew,      /*tp_new*/
-      	_PyObject_Del,       /*tp_free*/
-        0,                      /*tp_is_gc*/
+	0,			                /*tp_print*/
+	0,			                /*tp_getattr*/
+	0,			                /*tp_setattr*/
+	0,			                /*tp_compare*/
+	0,			                /*tp_repr*/
+	0,			                /*tp_as_number*/
+	0,			                /*tp_as_sequence*/
+	0,			                /*tp_as_mapping*/
+	0,			                /*tp_hash*/
+    0,                          /*tp_call*/
+    0,                          /*tp_str*/
+    PyObject_GenericGetAttr,    /*tp_getattro*/
+    PyObject_GenericSetAttr,    /*tp_setattro*/
+    0,                          /*tp_as_buffer*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
+    MCRYPT__doc__,              /*tp_doc*/
+    0,                          /*tp_traverse*/
+    0,                          /*tp_clear*/
+    0,                          /*tp_richcompare*/
+    0,                          /*tp_weaklistoffset*/
+    0,                          /*tp_iter*/
+    0,                          /*tp_iternext*/
+    MCRYPT_methods,             /*tp_methods*/
+    MCRYPT_members,             /*tp_members*/
+    0,                          /*tp_getset*/
+    0,                          /*tp_base*/
+    0,                          /*tp_dict*/
+    0,                          /*tp_descr_get*/
+    0,                          /*tp_descr_set*/
+    0,                          /*tp_dictoffset*/
+    (initproc)MCRYPT__init__,   /*tp_init*/
+    PyType_GenericAlloc,        /*tp_alloc*/
+    PyType_GenericNew,          /*tp_new*/
+    PyObject_Del,               /*tp_free*/
+    0,                          /*tp_is_gc*/
 };
 /* --------------------------------------------------------------------- */
 
@@ -1215,8 +1220,8 @@ get_dir_from_obj(PyObject *dirobj, char *default_dir, char **dir)
 		*dir = default_dir;
 	} else if (dirobj == Py_None) {
 		*dir = NULL;
-	} else if (PyString_Check(dirobj)) {
-		*dir = PyString_AsString(dirobj);
+	} else if (PyBytes_Check(dirobj)) {
+		*dir = PyBytes_AsString(dirobj);
 	} else {
 		PyErr_SetString(PyExc_TypeError,
 				"directory must be None or a string");
@@ -1239,9 +1244,9 @@ _mcrypt_set_algorithm_dir(PyObject *self, PyObject *adirobj)
 	if (adirobj == Py_None) {
 		free(algorithm_dir);
 		algorithm_dir = NULL;
-	} else if (PyString_Check(adirobj)) {
+	} else if (PyBytes_Check(adirobj)) {
 		free(algorithm_dir);
-		algorithm_dir = strdup(PyString_AsString(adirobj));
+		algorithm_dir = strdup(PyBytes_AsString(adirobj));
 		if (algorithm_dir == NULL) {
 			PyErr_NoMemory();
 			return NULL;
@@ -1269,9 +1274,9 @@ _mcrypt_set_mode_dir(PyObject *self, PyObject *mdirobj)
 	if (mdirobj == Py_None) {
 		free(mode_dir);
 		mode_dir = NULL;
-	} else if (PyString_Check(mdirobj)) {
+	} else if (PyBytes_Check(mdirobj)) {
 		free(mode_dir);
-		mode_dir = strdup(PyString_AsString(mdirobj));
+		mode_dir = strdup(PyBytes_AsString(mdirobj));
 		if (mode_dir == NULL) {
 			PyErr_NoMemory();
 			return NULL;
@@ -1321,7 +1326,7 @@ _mcrypt_list_algorithms(PyObject *self, PyObject *args)
 	ret = PyList_New(size);
 	if (ret != NULL)
 		for (i = 0; i != size; i++) {
-			PyObject *o = PyString_FromString(algorithms[i]);
+			PyObject *o = PyBytes_FromString(algorithms[i]);
 			if (o == NULL) {
 				PyObject_Del(ret);
 				ret = NULL;
@@ -1369,7 +1374,7 @@ _mcrypt_list_modes(PyObject *self, PyObject *args)
 	ret = PyList_New(size);
 	if (ret != NULL)
 		for (i = 0; i != size; i++) {
-			PyObject *o = PyString_FromString(modes[i]);
+			PyObject *o = PyBytes_FromString(modes[i]);
 			if (o == NULL) {
 				PyObject_Del(ret);
 				ret = NULL;
@@ -1701,17 +1706,23 @@ Constants\n\
 MCRYPT_*\n\
 ";
 
-DL_EXPORT(void)
-initmcrypt(void)
-{
+static struct PyModuleDef moduledef = {
+    PyModuleDef_HEAD_INIT,  /* m_base */
+    "mcrypt",               /* m_name */
+    mcrypt__doc__,          /* m_doc */
+    -1,                     /* m_size */
+    mcrypt_methods          /* m_methods */
+};
+
+DL_EXPORT(void) initmcrypt(void) {
 	PyObject *m;
 
-	MCRYPT_Type.ob_type = &PyType_Type;
+	Py_TYPE(&MCRYPT_Type) = &PyType_Type;
 
-	m = Py_InitModule3("mcrypt", mcrypt_methods, mcrypt__doc__);
+	m = PyModule_Create(&moduledef);
 
-	PyModule_AddObject(m, "__author__", PyString_FromString(__author__));
-	PyModule_AddObject(m, "__version__", PyString_FromString(VERSION));
+	PyModule_AddObject(m, "__author__", PyStr_FromString(__author__));
+	PyModule_AddObject(m, "__version__", PyStr_FromString(VERSION));
 
 	Py_INCREF(&MCRYPT_Type);
 	PyModule_AddObject(m, "MCRYPT", (PyObject *)&MCRYPT_Type);
