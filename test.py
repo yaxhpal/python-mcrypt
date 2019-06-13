@@ -1,6 +1,7 @@
 #!/usr/bin/python
+# -*- encoding: utf-8 -*-
 import unittest
-from cStringIO import StringIO
+from io import StringIO
 
 # Add build directory to search path
 import os
@@ -20,9 +21,9 @@ class BaseTestCase(unittest.TestCase):
        The  libmcrypt  is a data encryption library.  The library
        is thread safe  and  provides  encryption  and  decryption
        functions.   This  version  of  the  library supports many
-       encryption algorithms and  encryption  modes.  Some  algo­
+       encryption algorithms and  encryption  modes.  Some  algoï¿½
        rithms which are supported: SERPENT, RIJNDAEL, 3DES, GOST,
-       SAFER+, CAST-256, RC2, XTEA, 3WAY, TWOFISH, BLOWFISH, ARC­
+       SAFER+, CAST-256, RC2, XTEA, 3WAY, TWOFISH, BLOWFISH, ARCï¿½
        FOUR, WAKE and more.
 
        OFB,  CBC,  ECB, nOFB, nCFB and CFB are the modes that all

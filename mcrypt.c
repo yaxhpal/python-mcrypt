@@ -647,8 +647,7 @@ MCRYPT_decrypt(MCRYPTObject *self, PyObject *args, PyObject *kwargs)
 	if (catch_mcrypt_error(rc))
 		ret = NULL;
 	else
-		ret = PyStr_FromStringAndSize(blockbuffer, blockbuffer_size
-						 -block_size+left_size);
+		ret = PyBytes_FromStringAndSize(blockbuffer, blockbuffer_size-block_size+left_size);
 	PyMem_Free(blockbuffer);
 	return ret;
 }
@@ -1713,7 +1712,8 @@ static struct PyModuleDef moduledef = {
     mcrypt_methods          /* m_methods */
 };
 
-DL_EXPORT(void) initmcrypt(void) {
+PyMODINIT_FUNC PyInit_mcrypt(void) {
+
 	PyObject *m;
 
 	Py_TYPE(&MCRYPT_Type) = &PyType_Type;
@@ -1774,5 +1774,5 @@ DL_EXPORT(void) initmcrypt(void) {
 	INSSTR(MCRYPT_nCFB); /* This one is missing in mcrypt.h. */
 	INSSTR(MCRYPT_STREAM);
 #endif
-
+ return m;
 }
