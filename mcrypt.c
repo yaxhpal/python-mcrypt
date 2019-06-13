@@ -582,8 +582,7 @@ MCRYPT_encrypt(MCRYPTObject *self, PyObject *args, PyObject *kwargs)
 	if (catch_mcrypt_error(rc))
 		ret = NULL;
 	else
-		ret = PyStr_FromStringAndSize(blockbuffer,
-						 blockbuffer_size);
+		ret = PyBytes_FromStringAndSize(blockbuffer, blockbuffer_size);
 	PyMem_Free(blockbuffer);
 	return ret;
 }
